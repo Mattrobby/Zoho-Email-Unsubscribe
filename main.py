@@ -23,14 +23,14 @@ def home():
 
 @app.route('/login')
 def login():
-    scope = 'ZohoMail.messages.READ,ZohoMail.messages.DELETE,ZohoMail.accounts.READ,ZohoMail.folders.READ'
+    scope = 'ZohoMail.accounts.READ,ZohoMail.messages.ALL,ZohoMail.folders.READ'
     auth_url = f'https://accounts.zoho.com/oauth/v2/auth?scope={scope}&client_id={client_id}&response_type=code&access_type=offline&redirect_uri={redirect_uri}'
     return redirect(auth_url)
 
 
 @app.route('/callback')
 def callback():
-    global account_id, access_token  # Use global variables
+    global account_id, access_token
 
     code = request.args.get('code')
     if not code:
@@ -71,9 +71,26 @@ def callback():
         return "Error obtaining access token", 500
 
 
+def get_unsubscribe_link(message_id, folder_id):
+    global account_id, access_token
+
+    message_id = "1704232973332110001"
+    folder_id = "6314644000000008014"
+
+    api_url = f'https://mail.zoho.com/api/accounts/{account_id}/folders/{folder_id}/messages/{message_id}/content'
+
+    headers = {'Authorization': f'Bearer {access_token}'}
+    response = requests.get(api_url, headers=headers)
+
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return f"Error fetching email message: {response.status_code} {response.text}", 500
+
+
 @app.route('/unsubscribe')
 def unsubscribe():
-    global account_id, access_token  # Use global variables
+    global account_id, access_token
 
     # Checks if user is logged in
     if not account_id or not access_token:
@@ -89,10 +106,8 @@ def unsubscribe():
 
     if folder_response.status_code == 200:
         folder_data = folder_response.json()
-        for folder in folder_data['data']:
-            if folder['path'] == "/Inbox":
-                folder_id = folder['folderId']
-                break
+        folder_map = {item["folderId"]: item["path"]
+                      for item in folder_data["data"]}
 
     else:
         return f"Error fetching inbox_id: {folder_response.status_code} {folder_response.text}", 500
@@ -105,7 +120,7 @@ def unsubscribe():
 
     while email_count >= 200:
         # Endpoint to fetch emails
-        api_url = f'https://mail.zoho.com/api/accounts/{account_id}/messages/view?start={start}&limit={limit}&folderId={folder_id}'
+        api_url = f'https://mail.zoho.com/api/accounts/{account_id}/messages/view?start={start}&limit={limit}'
 
         headers = {'Authorization': f'Bearer {access_token}'}
         emails_response = requests.get(api_url, headers=headers)
@@ -119,6 +134,14 @@ def unsubscribe():
         email_count = len(email_data)
         emails.extend(email_data)
         start = start + 200
+
+        for email in emails:
+            message_id = email['messageId']
+            folder_id = email['folderId']
+            subject = email['subject']
+            sender = email['sender']
+            from_adderss = email['fromAddress']
+            folder = folder_map.get(folder_id)
 
     return emails
 
