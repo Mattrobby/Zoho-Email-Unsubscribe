@@ -1,3 +1,4 @@
+from urllib.parse import urlencode
 from flask import Flask, request, redirect, session, render_template
 import requests
 
@@ -22,7 +23,7 @@ def home():
 
 @app.route('/login')
 def login():
-    scope = 'ZohoMail.messages.READ,ZohoMail.messages.DELETE,ZohoMail.accounts.READ'
+    scope = 'ZohoMail.messages.READ,ZohoMail.messages.DELETE,ZohoMail.accounts.READ,ZohoMail.folders.READ'
     auth_url = f'https://accounts.zoho.com/oauth/v2/auth?scope={scope}&client_id={client_id}&response_type=code&access_type=offline&redirect_uri={redirect_uri}'
     return redirect(auth_url)
 
@@ -70,35 +71,57 @@ def callback():
         return "Error obtaining access token", 500
 
 
-@app.route('/fetch-emails')
-def fetch_emails():
+@app.route('/unsubscribe')
+def unsubscribe():
     global account_id, access_token  # Use global variables
 
-    offset = 0
-    limit = 500
-
+    # Checks if user is logged in
     if not account_id or not access_token:
         # Store the URL that initiated the login process
         session['redirect_back_to'] = request.url
         return redirect('/login')
 
-    # Endpoint to fetch emails
-    api_url = f'https://mail.zoho.com/api/accounts/{account_id}/messages/view?limit={limit}'
+    # Gets the folder_id of the inbox
+    api_url = f'https://mail.zoho.com/api/accounts/{account_id}/folders'
+
     headers = {'Authorization': f'Bearer {access_token}'}
-    response = requests.get(api_url, headers=headers)
+    folder_response = requests.get(api_url, headers=headers)
 
-    if response.status_code == 200:
-        return response.json()  # Returns the list of emails in JSON format
+    if folder_response.status_code == 200:
+        folder_data = folder_response.json()
+        for folder in folder_data['data']:
+            if folder['path'] == "/Inbox":
+                folder_id = folder['folderId']
+                break
+
     else:
-        return f"Error fetching emails: {response.status_code} {response.text}", 500
+        return f"Error fetching inbox_id: {folder_response.status_code} {folder_response.text}", 500
 
+    # Creates a list of all emails stored in the inbox
+    emails = []
+    limit = 200
+    start = 0
+    email_count = 200
 
-@app.route('/unsubscribe')
-def unsubscribe():
-    emails = fetch_emails()
+    while email_count >= 200:
+        # Endpoint to fetch emails
+        api_url = f'https://mail.zoho.com/api/accounts/{account_id}/messages/view?start={start}&limit={limit}&folderId={folder_id}'
+
+        headers = {'Authorization': f'Bearer {access_token}'}
+        emails_response = requests.get(api_url, headers=headers)
+
+        if emails_response.status_code == 200:
+            email_data = emails_response.json()['data']
+        else:
+            return f"Error fetching emails: {emails_response.status_code} {emails_response.text}", 500
+        print(f'Getting emails {start}-{start+200}')
+
+        email_count = len(email_data)
+        emails.extend(email_data)
+        start = start + 200
+
     return emails
 
 
 if __name__ == '__main__':
     app.run(debug=True)
-
