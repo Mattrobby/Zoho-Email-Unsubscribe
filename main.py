@@ -1,4 +1,3 @@
-from urllib.parse import urlencode
 from flask import Flask, request, redirect, session, render_template
 import requests
 
@@ -142,6 +141,8 @@ def unsubscribe():
             sender = email['sender']
             from_adderss = email['fromAddress']
             folder = folder_map.get(folder_id)
+
+            unsubscribe_link = get_unsubscribe_link(message_id, folder_id)
 
     return emails
 
