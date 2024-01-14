@@ -1,14 +1,18 @@
 from flask import Flask, request, redirect, session, render_template
+from dotenv import load_dotenv
 import requests
+import os
+
+load_dotenv()
 
 app = Flask(__name__)
 # Set a strong, secret key for session handling
 app.secret_key = 'your_secret_key'
 
 # Your credentials
-client_id = '1000.RSVJRZHN5FCU92W4C9SMPAXM68X7AC'
-client_secret = 'f439ea7bf0093a173b66fee38c2370fbc5cfe804d0'
-redirect_uri = 'http://localhost:5000/callback'
+client_id = os.getenv('CLIENT_ID')
+client_secret = os.getenv('CLIENT_SECRET')
+redirect_uri = os.getenv('REDIRECT_URL')
 
 # Global variables to store account ID and access token
 account_id = None
@@ -134,15 +138,15 @@ def unsubscribe():
         emails.extend(email_data)
         start = start + 200
 
-        for email in emails:
-            message_id = email['messageId']
-            folder_id = email['folderId']
-            subject = email['subject']
-            sender = email['sender']
-            from_adderss = email['fromAddress']
-            folder = folder_map.get(folder_id)
-
-            unsubscribe_link = get_unsubscribe_link(message_id, folder_id)
+        # for email in emails:
+        #     message_id = email['messageId']
+        #     folder_id = email['folderId']
+        #     subject = email['subject']
+        #     sender = email['sender']
+        #     from_adderss = email['fromAddress']
+        #     folder = folder_map.get(folder_id)
+        #
+        #     unsubscribe_link = get_unsubscribe_link(message_id, folder_id)
 
     return emails
 
