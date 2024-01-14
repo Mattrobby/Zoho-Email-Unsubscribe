@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Unsubscribe Emails</title>
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      border: 1px solid black;
+      padding: 8px;
+      text-align: left;
+    }
+
+    .highlighted {
+      background-color: green;
+    }
+  </style>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
+
+<body>
+  <table>
+    <thead>
+      <tr>
+        <th>From</th>
+        <th>Email</th>
+        <th>Subjects</th>
+        <th>Folders</th>
+        <th>Unsubscribe</th>
+        <th>Content</th>
+        <th>Spam</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for from_address, emails in email_map.items() %}
+      <tr>
+        <td>
+          <center>{{ emails[0].sender }}</center>
+        </td>
+        <td>
+          <center>{{ from_address }}</center>
+        </td>
+        <td>
+          <center>{{ emails | map(attribute='folder') | unique | join(',<br>') | safe }}</center>
+        </td>
+        <!-- <td>{{ emails | map(attribute='subject') | join(',<br>') | safe }}</td> -->
+        <td>
+          <ul style="padding-left: 15px;">
+            {% for email in emails %}
+            <li>{{ email.subject }}</li>
+            {% endfor %}
+          </ul>
+        </td>
+
+        <td>
+          {% if emails[0].unsubscribe_url %}
+          <button
+            onclick="window.open('{{ emails[0].unsubscribe_url }}', '_blank'); unsubscribeAndDelete('{{ from_address }}', {{ emails|tojson|safe }}); highlightCell(this)">Unsubscribe</button>
+          {% else %}
+          N/A
+          {% endif %}
+        </td>
+        <td>
+          <!-- Example button to show content - implementation depends on your needs -->
+          <button onclick="alert('Content loading not implemented'); highlightCell(this)">Show Emails</button>
+        </td>
+        <td>
+          <!-- Example button to show content - implementation depends on your needs -->
+          <button onclick="alert('Content loading not implemented'); highlightCell(this)">Add to Spam</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+
+<script>
+  function highlightCell(button) {
+    var cell = button.parentElement;
+    cell.classList.add('highlighted');
+  }
+
+  function unsubscribeAndDelete(emailAddress, emails) {
+    emails.forEach(email => {
+      $.ajax({
+        url: '/delete',
+        type: 'POST',
+        data: {folder_id: email.folder, message_id: email.message_id}, // Assume these fields exist
+        success: function (response) {
+          console.log('Email deleted successfully');
+        },
+        error: function (error) {
+          console.error('Failed to delete email', error);
+        }
+      });
+    });
+  }
+</script>
+
+</html>
