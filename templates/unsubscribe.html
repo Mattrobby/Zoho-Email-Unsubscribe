@@ -29,10 +29,10 @@
     <thead>
       <tr>
         <th>From</th>
-        <th>Email</th>
-        <th>Subjects</th>
         <th>Folders</th>
+        <th>Subjects</th>
         <th>Unsubscribe</th>
+        <th>Delete</th>
         <th>Content</th>
         <th>Spam</th>
       </tr>
@@ -41,11 +41,16 @@
       {% for from_address, emails in email_map.items() %}
       <tr>
         <td>
-          <center>{{ emails[0].sender }}</center>
+          <center>
+            <b>{{emails[0].sender}}</b>
+            {% if from_address != emails[0].sender %}
+            <i><br>{{ from_address }}</i>
+            {% endif %}
+          </center>
         </td>
-        <td>
-          <center>{{ from_address }}</center>
-        </td>
+        <!-- <td> -->
+        <!--   <center>{{ from_address }}</center> -->
+        <!-- </td> -->
         <td>
           <center>{{ emails | map(attribute='folder') | unique | join(',<br>') | safe }}</center>
         </td>
@@ -57,11 +62,21 @@
             {% endfor %}
           </ul>
         </td>
-
         <td>
           {% if emails[0].unsubscribe_url %}
           <button
-            onclick="window.open('{{ emails[0].unsubscribe_url }}', '_blank'); unsubscribeAndDelete('{{ from_address }}', {{ emails|tojson|safe }}); highlightCell(this)">Unsubscribe</button>
+            onclick="deleteEmails({{ emails }}); window.open('{{ emails[0].unsubscribe_url }}', '_blank'); highlightCell(this)">
+            Unsubscribe
+          </button>
+          {% else %}
+          N/A
+          {% endif %}
+        </td>
+        <td>
+          {% if emails[0].unsubscribe_url %}
+          <button onclick="deleteEmails({{ emails }}); highlightCell(this)">
+            Delete
+          </button>
           {% else %}
           N/A
           {% endif %}
@@ -86,17 +101,22 @@
     cell.classList.add('highlighted');
   }
 
-  function unsubscribeAndDelete(emailAddress, emails) {
+  function deleteEmails(emails) {
     emails.forEach(email => {
+      var folderId = email.folder_id;  // Assuming each email object has folder_id
+      var messageId = email.message_id;  // Assuming each email object has message_id
+
       $.ajax({
-        url: '/delete',
         type: 'POST',
-        data: {folder_id: email.folder, message_id: email.message_id}, // Assume these fields exist
+        url: '/delete',
+        data: {folder_id: folderId, message_id: messageId},
         success: function (response) {
-          console.log('Email deleted successfully');
+          console.log("Email deleted: ", response);
+          // Additional UI update code can go here
         },
-        error: function (error) {
-          console.error('Failed to delete email', error);
+        error: function (response) {
+          console.error("Error deleting email: ", response);
+          // Error handling code can go here
         }
       });
     });

@@ -111,7 +111,7 @@ async def get_unsubscribe_link(client, email, account_id, access_token, folder_m
         "subject": subject,
         "sender": sender,
         "from_address": from_address,
-        "content": content,
+        # "content": content,
         "folder": folder_map.get(folder_id),
         "unsubscribe_url": unsubscribe_url,
         "message_id": message_id,
@@ -119,13 +119,16 @@ async def get_unsubscribe_link(client, email, account_id, access_token, folder_m
     }
 
 
-async def process_emails(account_id, access_token, emails, folder_map):
+async def process_emails(account_id, access_token, emails, folder_map, unsubscribe=True):
     async with httpx.AsyncClient() as client:
         tasks = [get_unsubscribe_link(
             client, email, account_id, access_token, folder_map) for email in emails]
         email_details = await asyncio.gather(*tasks)
         # Filter out None values
-        return [detail for detail in email_details if detail is not None]
+        if unsubscribe:
+            return [detail for detail in email_details if detail is not None]
+        else:
+            return email_details
 
 
 @app.route('/unsubscribe')
@@ -194,13 +197,13 @@ def delete():
         session['redirect_back_to'] = request.url
         return redirect('/login')
 
-    # Extract folder_id and message_id from the request
+    # Retrieve folder_id and message_id from the request
     folder_id = request.form.get('folder_id')
     message_id = request.form.get('message_id')
 
-    # Ensure folder_id and message_id are provided
+    # Validate folder_id and message_id
     if not folder_id or not message_id:
-        return jsonify({'error': 'Missing folder_id or message_id'}), 400
+        return jsonify({"error": "Missing folder_id or message_id"}), 400
 
     # The API URL to delete the email
     api_url = f'https://mail.zoho.com/api/accounts/{account_id}/folders/{folder_id}/messages/{message_id}'
@@ -209,11 +212,11 @@ def delete():
     # Send the DELETE request
     response = requests.delete(api_url, headers=headers)
 
-    # Check if the request was successful
+    # Check if the deletion was successful
     if response.status_code == 200:
-        return jsonify({'message': 'Email deleted successfully'}), 200
+        return jsonify({"message": "Email deleted successfully"}), 200
     else:
-        return jsonify({'error': 'Failed to delete email', 'status_code': response.status_code}), response.status_code
+        return jsonify({"error": "Failed to delete email", "details": response.text}), response.status_code
 
 
 if __name__ == '__main__':
